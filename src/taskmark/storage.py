@@ -224,6 +224,32 @@ def git_commit(message: str) -> str:
         raise
 
 
+def _parse_status(task_dir: Path) -> str | None:
+    """タスクディレクトリ内の task.md から status を取得する"""
+    task_file = task_dir / "task.md"
+    if not task_file.is_file():
+        return None
+    lines = task_file.read_text(encoding="utf-8").splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if line.strip().startswith("status:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
+def list_tasks_by_status(project: str, status: str) -> list[str]:
+    """指定ステータスに一致するタスク名の一覧を返す"""
+    project_dir = _project_dir(project)
+    return sorted(
+        d.name
+        for d in project_dir.iterdir()
+        if d.is_dir() and _parse_status(d) == status
+    )
+
+
 def revert_file(project: str, task_name: str, filename: str) -> None:
     """tmpから変更前のファイルを復元する"""
     tmp_path = TEMP_DIR / f"{project}_{task_name}_{filename}"

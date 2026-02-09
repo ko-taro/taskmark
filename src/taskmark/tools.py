@@ -84,6 +84,19 @@ def register_tools(mcp: FastMCP) -> None:
         storage.delete_task(project, task_name)
         return f"タスク '{task_name}' をプロジェクト '{project}' から削除しました。"
 
+    @mcp.tool()
+    def list_tasks_by_status(project: str, status: str) -> str:
+        """プロジェクト内のタスクをステータスで絞り込む。
+
+        Args:
+            project: プロジェクト名
+            status: 絞り込むステータス（例: todo, in_progress, done）
+        """
+        tasks = storage.list_tasks_by_status(project, status)
+        if not tasks:
+            return f"プロジェクト '{project}' にステータス '{status}' のタスクはありません。"
+        return "\n".join(tasks)
+
     # --- ファイルツール ---
 
     @mcp.tool()
