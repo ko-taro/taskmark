@@ -240,6 +240,42 @@ def _parse_status(task_dir: Path) -> str | None:
     return None
 
 
+def search_tasks(query: str, project: str | None = None) -> list[dict]:
+    """タスクファイル内をキーワード検索する。マッチしたタスクの情報を返す。"""
+    ensure_base_dirs()
+    results: list[dict] = []
+
+    if project:
+        project_dirs = [(_project_dir(project), project)]
+    else:
+        project_dirs = [
+            (d, d.name) for d in PROJECTS_DIR.iterdir() if d.is_dir()
+        ]
+
+    for proj_dir, proj_name in project_dirs:
+        for task_dir in sorted(proj_dir.iterdir()):
+            if not task_dir.is_dir():
+                continue
+            for file_path in sorted(task_dir.iterdir()):
+                if not file_path.is_file():
+                    continue
+                content = file_path.read_text(encoding="utf-8")
+                if query.lower() in content.lower():
+                    # マッチ行を抽出
+                    matched_lines = [
+                        line.strip()
+                        for line in content.splitlines()
+                        if query.lower() in line.lower()
+                    ]
+                    results.append({
+                        "project": proj_name,
+                        "task": task_dir.name,
+                        "file": file_path.name,
+                        "matched_lines": matched_lines[:5],
+                    })
+    return results
+
+
 def list_tasks_by_status(project: str, status: str) -> list[str]:
     """指定ステータスに一致するタスク名の一覧を返す"""
     project_dir = _project_dir(project)

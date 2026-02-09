@@ -85,6 +85,27 @@ def register_tools(mcp: FastMCP) -> None:
         return f"タスク '{task_name}' をプロジェクト '{project}' から削除しました。"
 
     @mcp.tool()
+    def search(query: str, project: str | None = None) -> str:
+        """タスクファイル内をキーワード検索する。
+
+        全プロジェクト横断で検索し、マッチしたタスクとファイル、該当行を返す。
+        projectを指定すると、そのプロジェクト内のみ検索する。
+
+        Args:
+            query: 検索キーワード（大文字小文字を区別しない）
+            project: プロジェクト名（省略時は全プロジェクト横断）
+        """
+        results = storage.search_tasks(query, project)
+        if not results:
+            return f"'{query}' に一致するタスクは見つかりませんでした。"
+        lines = []
+        for r in results:
+            lines.append(f"[{r['project']}/{r['task']}] {r['file']}")
+            for ml in r["matched_lines"]:
+                lines.append(f"  {ml}")
+        return "\n".join(lines)
+
+    @mcp.tool()
     def list_tasks_by_status(project: str, status: str) -> str:
         """プロジェクト内のタスクをステータスで絞り込む。
 
