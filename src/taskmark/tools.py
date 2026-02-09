@@ -143,7 +143,8 @@ def register_tools(mcp: FastMCP) -> None:
             task_name: タスク名
             filename: 読み取るファイル名
         """
-        return storage.get_file(project, task_name, filename)
+        path, content = storage.get_file(project, task_name, filename)
+        return f"パス: {path}\n---\n{content}"
 
     @mcp.tool()
     def update_file(

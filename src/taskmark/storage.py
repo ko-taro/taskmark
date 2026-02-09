@@ -146,14 +146,14 @@ def list_files(project: str, task_name: str) -> list[str]:
     return sorted(f.name for f in task_dir.iterdir() if f.is_file())
 
 
-def get_file(project: str, task_name: str, filename: str) -> str:
-    """タスクディレクトリ内のファイルを読み取る"""
+def get_file(project: str, task_name: str, filename: str) -> tuple[Path, str]:
+    """タスクディレクトリ内のファイルを読み取る。(パス, 内容) を返す。"""
     file_path = _task_dir(project, task_name) / filename
     if not file_path.is_file():
         raise FileNotFoundError(
             f"ファイル '{filename}' がタスク '{task_name}' に見つかりません"
         )
-    return file_path.read_text(encoding="utf-8")
+    return file_path, file_path.read_text(encoding="utf-8")
 
 
 def update_file(
