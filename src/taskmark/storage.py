@@ -1,6 +1,7 @@
 """Taskmarkのストレージ操作 (~/.taskmark/ のファイル・ディレクトリ管理)"""
 
 import shutil
+import subprocess
 from pathlib import Path
 
 from taskmark.models import DEFAULT_TEMPLATE_CONTENT, render_template
@@ -11,10 +12,27 @@ PROJECTS_DIR = BASE_DIR / "projects"
 TEMP_DIR = BASE_DIR / ".tmp"
 
 
+def _run_git(*args: str) -> subprocess.CompletedProcess[str]:
+    """~/.taskmark/ 内で git コマンドを実行する"""
+    return subprocess.run(
+        ["git", *args],
+        cwd=BASE_DIR,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
 def ensure_base_dirs() -> None:
     """ベースディレクトリとデフォルトテンプレートを作成する（未作成の場合）"""
     TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
     PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # git init（未初期化の場合のみ）
+    if not (BASE_DIR / ".git").exists():
+        _run_git("init")
+        gitignore = BASE_DIR / ".gitignore"
+        gitignore.write_text(".tmp/\n", encoding="utf-8")
 
     default_template_dir = TEMPLATES_DIR / "default"
     if not default_template_dir.exists():
@@ -186,6 +204,24 @@ def create_template(name: str) -> Path:
         raise FileExistsError(f"テンプレート '{name}' は既に存在します")
     template_dir.mkdir()
     return template_dir
+
+
+def git_status() -> str:
+    """~/.taskmark/ 内の未コミット変更を返す。"""
+    result = _run_git("status", "--short")
+    return result.stdout.strip()
+
+
+def git_commit(message: str) -> str:
+    """~/.taskmark/ 内の全変更をステージしてコミットする。結果メッセージを返す。"""
+    _run_git("add", "-A")
+    try:
+        result = _run_git("commit", "-m", message)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        if "nothing to commit" in e.stdout:
+            return ""
+        raise
 
 
 def revert_file(project: str, task_name: str, filename: str) -> None:

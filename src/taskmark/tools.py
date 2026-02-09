@@ -158,6 +158,30 @@ def register_tools(mcp: FastMCP) -> None:
         storage.delete_file(project, task_name, filename)
         return f"タスク '{task_name}' のファイル '{filename}' を削除しました。"
 
+    # --- gitツール ---
+
+    @mcp.tool()
+    def status() -> str:
+        """~/.taskmark/ 内の未コミット変更一覧を取得する。"""
+        result = storage.git_status()
+        if not result:
+            return "未コミットの変更はありません。"
+        return result
+
+    @mcp.tool()
+    def commit(message: str) -> str:
+        """~/.taskmark/ 内の全変更をgitコミットする。
+
+        明示的に指示されたときのみ使用すること。
+
+        Args:
+            message: コミットメッセージ
+        """
+        result = storage.git_commit(message)
+        if not result:
+            return "コミットする変更はありませんでした。"
+        return result
+
     # --- tmpツール ---
 
     @mcp.tool()
