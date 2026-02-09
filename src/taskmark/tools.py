@@ -65,13 +65,14 @@ def register_tools(mcp: FastMCP) -> None:
 
         Args:
             project: プロジェクト名
-            task_name: タスクのディレクトリ名
-            title: タスクのタイトル（テンプレートのプレースホルダに使用）
+            task_name: タスクのディレクトリ名（日本語可。日付プレフィックスが自動付与される。例: ログインバグ修正 → 20260209_ログインバグ修正）
+            title: タスクのタイトル（task.md の見出しに使用）
             template: 使用するテンプレート名（デフォルト: "default"）
         """
         path = storage.create_task(project, task_name, title, template)
-        files = storage.list_files(project, task_name)
-        return f"タスク '{task_name}' を作成しました: {path}\nファイル: {', '.join(files)}"
+        actual_name = path.name
+        files = storage.list_files(project, actual_name)
+        return f"タスク '{actual_name}' を作成しました: {path}\nファイル: {', '.join(files)}"
 
     @mcp.tool()
     def delete_task(project: str, task_name: str) -> str:

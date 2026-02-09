@@ -2,6 +2,7 @@
 
 import shutil
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from taskmark.models import DEFAULT_TEMPLATE_CONTENT, render_template
@@ -80,7 +81,7 @@ def _project_dir(project: str) -> Path:
 
 
 def list_tasks(project: str) -> list[str]:
-    """プロジェクト内のタスク名一覧を返す"""
+    """プロジェクト内のタスク名の一覧を返す"""
     project_dir = _project_dir(project)
     return sorted(d.name for d in project_dir.iterdir() if d.is_dir())
 
@@ -88,8 +89,13 @@ def list_tasks(project: str) -> list[str]:
 def create_task(
     project: str, task_name: str, title: str, template: str = "default"
 ) -> Path:
-    """テンプレートから新しいタスクディレクトリを作成する。パスを返す。"""
+    """テンプレートから新しいタスクディレクトリを作成する。パスを返す。
+
+    task_name には日付プレフィックス (YYYYMMDD_) が自動付与される。
+    """
     project_dir = _project_dir(project)
+    prefix = datetime.now().strftime("%Y%m%d")
+    task_name = f"{prefix}_{task_name}"
     task_dir = project_dir / task_name
     if task_dir.exists():
         raise FileExistsError(
@@ -248,9 +254,7 @@ def search_tasks(query: str, project: str | None = None) -> list[dict]:
     if project:
         project_dirs = [(_project_dir(project), project)]
     else:
-        project_dirs = [
-            (d, d.name) for d in PROJECTS_DIR.iterdir() if d.is_dir()
-        ]
+        project_dirs = [(d, d.name) for d in PROJECTS_DIR.iterdir() if d.is_dir()]
 
     for proj_dir, proj_name in project_dirs:
         for task_dir in sorted(proj_dir.iterdir()):
@@ -267,12 +271,14 @@ def search_tasks(query: str, project: str | None = None) -> list[dict]:
                         for line in content.splitlines()
                         if query.lower() in line.lower()
                     ]
-                    results.append({
-                        "project": proj_name,
-                        "task": task_dir.name,
-                        "file": file_path.name,
-                        "matched_lines": matched_lines[:5],
-                    })
+                    results.append(
+                        {
+                            "project": proj_name,
+                            "task": task_dir.name,
+                            "file": file_path.name,
+                            "matched_lines": matched_lines[:5],
+                        }
+                    )
     return results
 
 
