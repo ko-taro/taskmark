@@ -1,0 +1,16 @@
+[project]
+name = "taskmark"
+version = "0.1.0"
+description = "Task management MCP server - manage tasks as directories with markdown files"
+readme = "README.md"
+authors = [
+    { name = "ko-taro", email = "46833949+ko-taro@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "mcp[cli]>=1.25,<2",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
