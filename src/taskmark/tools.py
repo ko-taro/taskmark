@@ -266,15 +266,23 @@ def register_tools(mcp: FastMCP) -> None:
         return result
 
     @mcp.tool()
-    def commit(message: str) -> str:
-        """~/.taskmark/ 内の全変更をgitコミットする。
+    def commit(
+        message: str,
+        project: str | None = None,
+        task_name: str | None = None,
+    ) -> str:
+        """~/.taskmark/ 内の変更をgitコミットする。
 
         明示的に指示されたときのみ使用すること。
+        project や task_name を指定すると、その範囲のみコミットする。
+        省略時は全変更をコミットする。
 
         Args:
             message: コミットメッセージ
+            project: プロジェクト名（省略時は全変更）
+            task_name: タスク名（省略時はプロジェクト全体）
         """
-        result = storage.git_commit(message)
+        result = storage.git_commit(message, project, task_name)
         if not result:
             return "コミットする変更はありませんでした。"
         return result

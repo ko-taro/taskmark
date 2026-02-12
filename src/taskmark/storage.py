@@ -282,9 +282,31 @@ def git_status() -> str:
     return result.stdout.strip()
 
 
-def git_commit(message: str) -> str:
-    """~/.taskmark/ 内の全変更をステージしてコミットする。結果メッセージを返す。"""
-    _run_git("add", "-A")
+def git_commit(
+    message: str,
+    project: str | None = None,
+    task_name: str | None = None,
+) -> str:
+    """変更をステージしてコミットする。結果メッセージを返す。
+
+    project/task_name を指定すると、その範囲のみステージする。
+    省略時は全変更をステージする。
+    """
+    if task_name and not project:
+        raise ValueError("task_name を指定する場合は project も必要です")
+
+    if project and task_name:
+        target = str(PROJECTS_DIR / project / task_name)
+    elif project:
+        target = str(PROJECTS_DIR / project)
+    else:
+        target = None
+
+    if target:
+        _run_git("add", target)
+    else:
+        _run_git("add", "-A")
+
     try:
         result = _run_git("commit", "-m", message)
         return result.stdout.strip()
