@@ -90,6 +90,50 @@ def register_tools(mcp: FastMCP) -> None:
         return f"タスク '{task_name}' をプロジェクト '{project}' から削除しました。"
 
     @mcp.tool()
+    def archive_task(project: str, task_name: str) -> str:
+        """タスクをアーカイブする。
+
+        タスクを _archive/ ディレクトリに移動する。
+        git mv を使用するため履歴は保持される。
+
+        Args:
+            project: プロジェクト名
+            task_name: アーカイブするタスク名
+        """
+        dest = storage.archive_task(project, task_name)
+        return f"タスク '{task_name}' をアーカイブしました: {dest}"
+
+    @mcp.tool()
+    def unarchive_task(project: str, task_name: str) -> str:
+        """アーカイブ済みタスクをアクティブに戻す。
+
+        _archive/ からプロジェクト直下に移動する。
+        git mv を使用するため履歴は保持される。
+
+        Args:
+            project: プロジェクト名
+            task_name: 戻すタスク名
+        """
+        dest = storage.unarchive_task(project, task_name)
+        return f"タスク '{task_name}' をアーカイブから復元しました: {dest}"
+
+    @mcp.tool()
+    def list_archived_tasks(project: str) -> str:
+        """プロジェクト内のアーカイブ済みタスク一覧を取得する。
+
+        Args:
+            project: プロジェクト名
+        """
+        tasks = storage.list_archived_tasks(project)
+        if not tasks:
+            return f"プロジェクト '{project}' にアーカイブ済みタスクはありません。"
+        lines = []
+        for t in tasks:
+            status = f" [{t['status']}]" if t["status"] else ""
+            lines.append(f"{t['name']}{status}")
+        return "\n".join(lines)
+
+    @mcp.tool()
     def search(query: str, project: str | None = None) -> str:
         """タスクファイル内をキーワード検索する。
 

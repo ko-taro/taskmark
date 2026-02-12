@@ -12,6 +12,7 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 PROJECTS_DIR = BASE_DIR / "projects"
 TEMP_DIR = BASE_DIR / ".tmp"
 RULES_FILENAME = "RULES.md"
+ARCHIVE_DIR_NAME = "_archive"
 
 
 def _run_git(*args: str) -> subprocess.CompletedProcess[str]:
@@ -82,11 +83,11 @@ def _project_dir(project: str) -> Path:
 
 
 def list_tasks(project: str) -> list[dict]:
-    """プロジェクト内のタスク一覧を返す。各タスクの名前とステータスを含む。"""
+    """プロジェクト内のアクティブなタスク一覧を返す。各タスクの名前とステータスを含む。"""
     project_dir = _project_dir(project)
     tasks = []
     for d in sorted(project_dir.iterdir()):
-        if d.is_dir():
+        if d.is_dir() and d.name != ARCHIVE_DIR_NAME:
             tasks.append({"name": d.name, "status": _parse_status(d) or ""})
     return tasks
 
@@ -131,6 +132,59 @@ def delete_task(project: str, task_name: str) -> None:
             f"タスク '{task_name}' がプロジェクト '{project}' に見つかりません"
         )
     shutil.rmtree(task_dir)
+
+
+def archive_task(project: str, task_name: str) -> Path:
+    """タスクを _archive/ に移動し、自動コミットする。git mv で履歴を保持する。"""
+    project_dir = _project_dir(project)
+    task_dir = project_dir / task_name
+    if not task_dir.is_dir():
+        raise FileNotFoundError(
+            f"タスク '{task_name}' がプロジェクト '{project}' に見つかりません"
+        )
+    archive_dir = project_dir / ARCHIVE_DIR_NAME
+    archive_dir.mkdir(exist_ok=True)
+    dest = archive_dir / task_name
+    if dest.exists():
+        raise FileExistsError(
+            f"タスク '{task_name}' は既にアーカイブに存在します"
+        )
+    _run_git("add", str(task_dir))
+    _run_git("mv", str(task_dir), str(dest))
+    _run_git("commit", "-m", f"archive: {project}/{task_name}")
+    return dest
+
+
+def unarchive_task(project: str, task_name: str) -> Path:
+    """タスクを _archive/ からアクティブに戻し、自動コミットする。git mv で履歴を保持する。"""
+    project_dir = _project_dir(project)
+    archive_dir = project_dir / ARCHIVE_DIR_NAME
+    task_dir = archive_dir / task_name
+    if not task_dir.is_dir():
+        raise FileNotFoundError(
+            f"タスク '{task_name}' がアーカイブに見つかりません"
+        )
+    dest = project_dir / task_name
+    if dest.exists():
+        raise FileExistsError(
+            f"タスク '{task_name}' は既にアクティブに存在します"
+        )
+    _run_git("add", str(task_dir))
+    _run_git("mv", str(task_dir), str(dest))
+    _run_git("commit", "-m", f"unarchive: {project}/{task_name}")
+    return dest
+
+
+def list_archived_tasks(project: str) -> list[dict]:
+    """プロジェクト内のアーカイブ済みタスク一覧を返す。"""
+    archive_dir = _project_dir(project) / ARCHIVE_DIR_NAME
+    if not archive_dir.is_dir():
+        return []
+    tasks = []
+    for d in sorted(archive_dir.iterdir()):
+        if d.is_dir():
+            tasks.append({"name": d.name, "status": _parse_status(d) or ""})
+    return tasks
 
 
 # --- タスク内ファイル操作 ---
