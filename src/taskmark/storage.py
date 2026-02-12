@@ -81,10 +81,14 @@ def _project_dir(project: str) -> Path:
     return path
 
 
-def list_tasks(project: str) -> list[str]:
-    """プロジェクト内のタスク名の一覧を返す"""
+def list_tasks(project: str) -> list[dict]:
+    """プロジェクト内のタスク一覧を返す。各タスクの名前とステータスを含む。"""
     project_dir = _project_dir(project)
-    return sorted(d.name for d in project_dir.iterdir() if d.is_dir())
+    tasks = []
+    for d in sorted(project_dir.iterdir()):
+        if d.is_dir():
+            tasks.append({"name": d.name, "status": _parse_status(d) or ""})
+    return tasks
 
 
 def create_task(

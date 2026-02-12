@@ -53,7 +53,11 @@ def register_tools(mcp: FastMCP) -> None:
         tasks = storage.list_tasks(project)
         if not tasks:
             return f"プロジェクト '{project}' にタスクが見つかりません。"
-        return "\n".join(tasks)
+        lines = []
+        for t in tasks:
+            status = f" [{t['status']}]" if t["status"] else ""
+            lines.append(f"{t['name']}{status}")
+        return "\n".join(lines)
 
     @mcp.tool()
     def create_task(
