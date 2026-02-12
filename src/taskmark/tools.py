@@ -149,7 +149,8 @@ def register_tools(mcp: FastMCP) -> None:
             return f"'{query}' に一致するタスクは見つかりませんでした。"
         lines = []
         for r in results:
-            lines.append(f"[{r['project']}/{r['task']}] {r['file']}")
+            tag = " (archived)" if r.get("archived") else ""
+            lines.append(f"[{r['project']}/{r['task']}]{tag} {r['file']}")
             for ml in r["matched_lines"]:
                 lines.append(f"  {ml}")
         return "\n".join(lines)

@@ -146,9 +146,7 @@ def archive_task(project: str, task_name: str) -> Path:
     archive_dir.mkdir(exist_ok=True)
     dest = archive_dir / task_name
     if dest.exists():
-        raise FileExistsError(
-            f"タスク '{task_name}' は既にアーカイブに存在します"
-        )
+        raise FileExistsError(f"タスク '{task_name}' は既にアーカイブに存在します")
     _run_git("add", str(task_dir))
     _run_git("mv", str(task_dir), str(dest))
     _run_git("commit", "-m", f"archive: {project}/{task_name}")
@@ -161,14 +159,10 @@ def unarchive_task(project: str, task_name: str) -> Path:
     archive_dir = project_dir / ARCHIVE_DIR_NAME
     task_dir = archive_dir / task_name
     if not task_dir.is_dir():
-        raise FileNotFoundError(
-            f"タスク '{task_name}' がアーカイブに見つかりません"
-        )
+        raise FileNotFoundError(f"タスク '{task_name}' がアーカイブに見つかりません")
     dest = project_dir / task_name
     if dest.exists():
-        raise FileExistsError(
-            f"タスク '{task_name}' は既にアクティブに存在します"
-        )
+        raise FileExistsError(f"タスク '{task_name}' は既にアクティブに存在します")
     _run_git("add", str(task_dir))
     _run_git("mv", str(task_dir), str(dest))
     _run_git("commit", "-m", f"unarchive: {project}/{task_name}")
@@ -191,12 +185,17 @@ def list_archived_tasks(project: str) -> list[dict]:
 
 
 def _task_dir(project: str, task_name: str) -> Path:
-    path = _project_dir(project) / task_name
-    if not path.is_dir():
-        raise FileNotFoundError(
-            f"タスク '{task_name}' がプロジェクト '{project}' に見つかりません"
-        )
-    return path
+    project_dir = _project_dir(project)
+    path = project_dir / task_name
+    if path.is_dir():
+        return path
+    # アーカイブ内もフォールバックで探す
+    archived = project_dir / ARCHIVE_DIR_NAME / task_name
+    if archived.is_dir():
+        return archived
+    raise FileNotFoundError(
+        f"タスク '{task_name}' がプロジェクト '{project}' に見つかりません"
+    )
 
 
 def list_files(project: str, task_name: str) -> list[str]:
@@ -391,7 +390,10 @@ def _parse_status(task_dir: Path) -> str | None:
 
 
 def search_tasks(query: str, project: str | None = None) -> list[dict]:
-    """タスクファイル内をキーワード検索する。マッチしたタスクの情報を返す。"""
+    """タスクファイル内をキーワード検索する。マッチしたタスクの情報を返す。
+
+    アクティブタスクとアーカイブ済みタスクの両方を検索対象とする。
+    """
     ensure_base_dirs()
     results: list[dict] = []
 
@@ -400,20 +402,31 @@ def search_tasks(query: str, project: str | None = None) -> list[dict]:
     else:
         project_dirs = [(d, d.name) for d in PROJECTS_DIR.iterdir() if d.is_dir()]
 
+    query_lower = query.lower()
+
     for proj_dir, proj_name in project_dirs:
-        for task_dir in sorted(proj_dir.iterdir()):
-            if not task_dir.is_dir():
+        # アクティブタスク + アーカイブ済みタスクを収集
+        task_entries: list[tuple[Path, bool]] = []
+        for d in sorted(proj_dir.iterdir()):
+            if not d.is_dir():
                 continue
+            if d.name == ARCHIVE_DIR_NAME:
+                for ad in sorted(d.iterdir()):
+                    if ad.is_dir():
+                        task_entries.append((ad, True))
+            else:
+                task_entries.append((d, False))
+
+        for task_dir, archived in task_entries:
             for file_path in sorted(task_dir.iterdir()):
                 if not file_path.is_file():
                     continue
                 content = file_path.read_text(encoding="utf-8")
-                if query.lower() in content.lower():
-                    # マッチ行を抽出
+                if query_lower in content.lower():
                     matched_lines = [
                         line.strip()
                         for line in content.splitlines()
-                        if query.lower() in line.lower()
+                        if query_lower in line.lower()
                     ]
                     results.append(
                         {
@@ -421,6 +434,7 @@ def search_tasks(query: str, project: str | None = None) -> list[dict]:
                             "task": task_dir.name,
                             "file": file_path.name,
                             "matched_lines": matched_lines[:5],
+                            "archived": archived,
                         }
                     )
     return results
