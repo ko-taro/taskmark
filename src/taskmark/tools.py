@@ -138,22 +138,27 @@ def register_tools(mcp: FastMCP) -> None:
     def get_file(project: str, task_name: str, filename: str) -> str:
         """タスクディレクトリ内のファイルを読み取る。
 
+        適用ルールがある場合は一緒に返す。
+
         Args:
             project: プロジェクト名
             task_name: タスク名
             filename: 読み取るファイル名
         """
         path, content = storage.get_file(project, task_name, filename)
-        return f"パス: {path}\n---\n{content}"
+        rules = storage.get_rules(project, task_name)
+        result = f"パス: {path}\n---\n{content}"
+        if rules:
+            result = f"{rules}\n\n---\n{result}"
+        return result
 
     @mcp.tool()
-    def update_file(
-        project: str, task_name: str, filename: str, content: str
-    ) -> str:
+    def update_file(project: str, task_name: str, filename: str, content: str) -> str:
         """タスクディレクトリ内のファイルを上書き更新する。
 
         更新後、変更前・変更後のファイルパスが返される。
         差分を確認するため、返されたパスを使って `code --diff 変更前パス 変更後パス` を実行すること。
+        適用ルールがある場合は一緒に返す。ルールに従ってファイルを編集すること。
 
         Args:
             project: プロジェクト名
@@ -162,16 +167,20 @@ def register_tools(mcp: FastMCP) -> None:
             content: 新しいファイル内容
         """
         old_path, new_path = storage.update_file(project, task_name, filename, content)
-        return (
+        rules = storage.get_rules(project, task_name)
+        result = (
             f"タスク '{task_name}' のファイル '{filename}' を更新しました。\n"
             f"変更前: {old_path}\n変更後: {new_path}"
         )
+        if rules:
+            result = f"{rules}\n\n---\n{result}"
+        return result
 
     @mcp.tool()
-    def create_file(
-        project: str, task_name: str, filename: str, content: str
-    ) -> str:
+    def create_file(project: str, task_name: str, filename: str, content: str) -> str:
         """タスクディレクトリ内に新しいファイルを作成する。
+
+        適用ルールがある場合は一緒に返す。
 
         Args:
             project: プロジェクト名
@@ -180,7 +189,11 @@ def register_tools(mcp: FastMCP) -> None:
             content: ファイル内容
         """
         path = storage.create_file(project, task_name, filename, content)
-        return f"ファイル '{filename}' を作成しました: {path}"
+        rules = storage.get_rules(project, task_name)
+        result = f"ファイル '{filename}' を作成しました: {path}"
+        if rules:
+            result = f"{rules}\n\n---\n{result}"
+        return result
 
     @mcp.tool()
     def delete_file(project: str, task_name: str, filename: str) -> str:
@@ -193,6 +206,54 @@ def register_tools(mcp: FastMCP) -> None:
         """
         storage.delete_file(project, task_name, filename)
         return f"タスク '{task_name}' のファイル '{filename}' を削除しました。"
+
+    # --- ルールツール ---
+
+    @mcp.tool()
+    def get_rules(project: str | None = None, task_name: str | None = None) -> str:
+        """適用ルールを取得する。
+
+        全体 → プロジェクト → タスクの階層順でルールを収集して返す。
+        引数の組み合わせで取得範囲が変わる:
+        - 引数なし → 全体ルールのみ
+        - project → 全体 + プロジェクトルール
+        - project + task_name → 全体 + プロジェクト + タスクルール
+
+        Args:
+            project: プロジェクト名（省略時は全体ルールのみ）
+            task_name: タスク名（省略時はタスクルールを含めない）
+        """
+        rules = storage.get_rules(project, task_name)
+        if not rules:
+            return "適用ルールはありません。"
+        return rules
+
+    @mcp.tool()
+    def set_rules(
+        content: str,
+        project: str | None = None,
+        task_name: str | None = None,
+    ) -> str:
+        """指定レベルのルール (RULES.md) を設定する。
+
+        引数の組み合わせで対象レベルが変わる:
+        - content のみ → 全体ルール (~/.taskmark/RULES.md)
+        - content + project → プロジェクトルール
+        - content + project + task_name → タスクルール
+
+        Args:
+            content: ルール内容
+            project: プロジェクト名（省略時は全体ルール）
+            task_name: タスク名（省略時はタスクルールを含めない）
+        """
+        path = storage.set_rules(content, project, task_name)
+        if project and task_name:
+            level = f"タスク '{task_name}'"
+        elif project:
+            level = f"プロジェクト '{project}'"
+        else:
+            level = "全体"
+        return f"{level}ルールを設定しました: {path}"
 
     # --- gitツール ---
 
@@ -296,4 +357,6 @@ def register_tools(mcp: FastMCP) -> None:
             content: ファイル内容（プレースホルダを含めることが可能）
         """
         path = storage.add_template_file(template, filename, content)
-        return f"テンプレート '{template}' にファイル '{filename}' を追加しました: {path}"
+        return (
+            f"テンプレート '{template}' にファイル '{filename}' を追加しました: {path}"
+        )

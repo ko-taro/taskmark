@@ -11,6 +11,7 @@ BASE_DIR = Path.home() / ".taskmark"
 TEMPLATES_DIR = BASE_DIR / "templates"
 PROJECTS_DIR = BASE_DIR / "projects"
 TEMP_DIR = BASE_DIR / ".tmp"
+RULES_FILENAME = "RULES.md"
 
 
 def _run_git(*args: str) -> subprocess.CompletedProcess[str]:
@@ -191,6 +192,69 @@ def delete_file(project: str, task_name: str, filename: str) -> None:
             f"ファイル '{filename}' がタスク '{task_name}' に見つかりません"
         )
     file_path.unlink()
+
+
+# --- ルール操作 ---
+
+
+def get_rules(project: str | None = None, task_name: str | None = None) -> str:
+    """階層ルールを収集して結合する。全体 → プロジェクト → タスクの順。
+
+    存在しないレベルはスキップする。ルールが一つもなければ空文字列を返す。
+    """
+    sections: list[str] = []
+
+    # 全体ルール
+    global_rules = BASE_DIR / RULES_FILENAME
+    if global_rules.is_file():
+        content = global_rules.read_text(encoding="utf-8").strip()
+        if content:
+            sections.append(f"=== 全体ルール ===\n{content}")
+
+    # プロジェクトルール
+    if project:
+        project_rules = PROJECTS_DIR / project / RULES_FILENAME
+        if project_rules.is_file():
+            content = project_rules.read_text(encoding="utf-8").strip()
+            if content:
+                sections.append(f"=== プロジェクトルール ({project}) ===\n{content}")
+
+    # タスクルール
+    if project and task_name:
+        task_rules = PROJECTS_DIR / project / task_name / RULES_FILENAME
+        if task_rules.is_file():
+            content = task_rules.read_text(encoding="utf-8").strip()
+            if content:
+                sections.append(f"=== タスクルール ===\n{content}")
+
+    return "\n\n".join(sections)
+
+
+def set_rules(
+    content: str,
+    project: str | None = None,
+    task_name: str | None = None,
+) -> Path:
+    """指定レベルの RULES.md を作成・上書きする。
+
+    レベルは引数の組み合わせで決まる:
+    - content のみ → 全体ルール (~/.taskmark/RULES.md)
+    - content + project → プロジェクトルール
+    - content + project + task_name → タスクルール
+    """
+    if task_name and not project:
+        raise ValueError("task_name を指定する場合は project も必要です")
+
+    if project and task_name:
+        rules_path = _task_dir(project, task_name) / RULES_FILENAME
+    elif project:
+        rules_path = _project_dir(project) / RULES_FILENAME
+    else:
+        ensure_base_dirs()
+        rules_path = BASE_DIR / RULES_FILENAME
+
+    rules_path.write_text(content, encoding="utf-8")
+    return rules_path
 
 
 # --- テンプレート操作 ---
